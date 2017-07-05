@@ -9,7 +9,7 @@ pane_window *new_pane(int height, int width, int start_y, int start_x) {
 
     pane_window *tmp_pane = malloc(sizeof (pane_window));
 
-    //tmp_pane->current_directory = getcwd(NULL, 255);
+    tmp_pane->current_directory = getcwd(NULL, 255);
     tmp_pane->dirlist = items_list(".");
 
     tmp_pane->height = height;

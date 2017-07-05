@@ -8,6 +8,7 @@
 
 #include "dirslist.h"
 #include "pane.h"
+#include "redraw_pane.h"
 
 /*
  * 
@@ -211,7 +212,7 @@ int main(int argc, char** argv) {
 
                 wrefresh(progress_bar_win);
                 sleep(1);
-                
+
             }
 
             //sleep(5);
@@ -227,7 +228,7 @@ int main(int argc, char** argv) {
         // Отображает текущий каталог в заголовке.
         // Valgrind говорит что в этой функции иногда происходят ошибки.
         mvwprintw(active_pane->PANE_WINDOW, 1, 1, " > %s\n", active_pane->current_directory);
-        // mvwprintw(INactive_pane->PANE_WINDOW, 1, 1, " > %s\n", INactive_pane->current_directory);
+        mvwprintw(INactive_pane->PANE_WINDOW, 1, 1, " > %s\n", INactive_pane->current_directory);
 
         // Переменная хранящая позицию с которой 
         // начинать выводить список файлов.
@@ -269,43 +270,54 @@ int main(int argc, char** argv) {
 
         /* Вывод списка.
          * Тут попробуем упростить чтобы не рябило в глазах от указетелей.    
-         * TODO: Вынести это в отдельную функцию.
+         * TODO: Вынести это в отдельную функцию. --> DONE!
          */
 
-        uint count = active_pane->dirlist->count;
-        uint real_position = active_pane->real_position;
-        struct item **list_item = active_pane->dirlist->ilist;
+        redraw_pane(active_pane, tmp_pos);
 
-        for (; tmp_pos < count; tmp_pos++) {
-            if (tmp_pos == real_position) {
-                wattron(active_pane->PANE_WINDOW, COLOR_PAIR(1));
-
-                if ((*(list_item + tmp_pos))->itype == ISDIR)
-                    wprintw(active_pane->PANE_WINDOW, "\n  /%s", (*(list_item + tmp_pos))->name);
-
-                if ((*(list_item + tmp_pos))->itype == ISFILE)
-                    wprintw(active_pane->PANE_WINDOW, "\n  %s", (*(list_item + tmp_pos))->name);
-
-                wattroff(active_pane->PANE_WINDOW, COLOR_PAIR(1));
-            } else {
-                if ((*(list_item + tmp_pos))->itype == ISDIR)
-                    wprintw(active_pane->PANE_WINDOW, "\n  /%s", (*(list_item + tmp_pos))->name);
-
-                if ((*(list_item + tmp_pos))->itype == ISFILE)
-                    wprintw(active_pane->PANE_WINDOW, "\n  %s", (*(list_item + tmp_pos))->name);
-            }
+        if (INactive_pane->position + TOP_BORDER > getmaxy(stdscr)) {
+            tmp_pos = INactive_pane->position - getmaxy(stdscr);
+            tmp_pos += BOTTOM_BORDER;
         }
+
+        redraw_pane(INactive_pane, tmp_pos);
+        /* Этот код работает, но уже вынесен в отдельную функцию redraw_pane() .
+                uint count = active_pane->dirlist->count;
+                uint real_position = active_pane->real_position;
+                struct item **list_item = active_pane->dirlist->ilist;
+
+                for (; tmp_pos < count; tmp_pos++) {
+                    if (tmp_pos == real_position) {
+                        wattron(active_pane->PANE_WINDOW, COLOR_PAIR(1));
+
+                        if ((*(list_item + tmp_pos))->itype == ISDIR)
+                            wprintw(active_pane->PANE_WINDOW, "\n  /%s", (*(list_item + tmp_pos))->name);
+
+                        if ((*(list_item + tmp_pos))->itype == ISFILE)
+                            wprintw(active_pane->PANE_WINDOW, "\n  %s", (*(list_item + tmp_pos))->name);
+
+                        wattroff(active_pane->PANE_WINDOW, COLOR_PAIR(1));
+                    } else {
+                        if ((*(list_item + tmp_pos))->itype == ISDIR)
+                            wprintw(active_pane->PANE_WINDOW, "\n  /%s", (*(list_item + tmp_pos))->name);
+
+                        if ((*(list_item + tmp_pos))->itype == ISFILE)
+                            wprintw(active_pane->PANE_WINDOW, "\n  %s", (*(list_item + tmp_pos))->name);
+                    }
+                }
+         */
 
 
 
         REDRAW(active_pane, 2);
         wrefresh(active_pane->PANE_WINDOW);
-        //wrefresh(INactive_pane->PANE_WINDOW);
+        REDRAW(INactive_pane, 2);
+        wrefresh(INactive_pane->PANE_WINDOW);
 
         pressed_key = getch();
 
         wclear(active_pane->PANE_WINDOW);
-        //wclear(INactive_pane->PANE_WINDOW);
+        wclear(INactive_pane->PANE_WINDOW);
 
     }
 
