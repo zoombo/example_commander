@@ -14,6 +14,10 @@
  * 
  */
 
+/*
+ * 
+ */
+
 #define uint unsigned int
 
 #define TOP_BORDER 5
@@ -82,11 +86,6 @@ int main(int argc, char** argv) {
 
     ////////////////////////////////////
 
-    // Отрисовываем на старте.
-    REDRAW(left_pane, 2);
-    REDRAW(right_pane, 2);
-    wrefresh(left_pane->PANE_WINDOW);
-    wrefresh(right_pane->PANE_WINDOW);
 
     /*
         // Получаем списки файлов для каждой панели.
@@ -94,7 +93,7 @@ int main(int argc, char** argv) {
         INactive_pane->dirlist = items_list(".");
      */
 
-    // int n = 0;
+
     while (true) {
 
         //REDRAW(active_pane);
@@ -145,15 +144,15 @@ int main(int argc, char** argv) {
         if (pressed_key == '\n') {
 
             // Тут запуск файла.
-
             if ((*(active_pane->dirlist->ilist + active_pane->real_position))->itype == ISFILE) {
                 char work[255];
                 // Тут строим полный путь к запускаемому файлу.
-                strcpy(work, getcwd(NULL, 255));
+                char *tmp_getcwd = getcwd(NULL, 255);
+                strcpy(work, tmp_getcwd);
                 strcat(work, "/");
                 strcat(work, (*(active_pane->dirlist->ilist + active_pane->real_position))->name);
+                free(tmp_getcwd);
 
-                //printw("\n\n %s\n", work);
                 // Временно закрываем окно 
                 clear();
                 refresh();
@@ -197,14 +196,17 @@ int main(int argc, char** argv) {
             continue;
         }
 
+        // Заготовка для progressbar'а копирования файла.
         if (pressed_key == KEY_F(5)) {
-            int width = 50;
-            WINDOW *progress_bar_win = newwin(6, width, getmaxy(stdscr) / 3,
-                    getmaxx(stdscr) / 2 - (width / 2));
+
+            int width = 50, height = 6;
+            int start_y = getmaxy(stdscr) / 3;
+            int start_x = getmaxx(stdscr) / 2 - (width / 2);
+            WINDOW *progress_bar_win = newwin(height, width, start_y, start_x);
             box(progress_bar_win, 0, 0);
             wrefresh(progress_bar_win);
 
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < width - 4; i++) {
 
                 wattron(progress_bar_win, COLOR_PAIR(3));
                 mvwprintw(progress_bar_win, 3, i + 2, " ");
@@ -212,6 +214,8 @@ int main(int argc, char** argv) {
 
                 wrefresh(progress_bar_win);
                 sleep(1);
+                if (getch() == 'q')
+                    break;
 
             }
 
@@ -226,14 +230,13 @@ int main(int argc, char** argv) {
 
         active_pane->current_directory = getcwd(NULL, 255);
         // Отображает текущий каталог в заголовке.
-        // Valgrind говорит что в этой функции иногда происходят ошибки.
+        // Valgrind говорит что в функции getcwd() иногда происходят ошибки.
         mvwprintw(active_pane->PANE_WINDOW, 1, 1, " > %s\n", active_pane->current_directory);
         mvwprintw(INactive_pane->PANE_WINDOW, 1, 1, " > %s\n", INactive_pane->current_directory);
 
         // Переменная хранящая позицию с которой 
         // начинать выводить список файлов.
         int tmp_pos = 0;
-        //if (real_position)
         // Вычисляем номер элемента с которого выводить список если
         // курсор ушел за нижний край.
         if (active_pane->position + TOP_BORDER > getmaxy(stdscr)) {
@@ -241,78 +244,37 @@ int main(int argc, char** argv) {
             tmp_pos += BOTTOM_BORDER;
         }
 
-        /* Этот код работает, это "старый" вариант. Не удаляю потому что пока
-         * не знаю, действительно-ли это код сложнее второго варианта.
-         * Время покажет.
-         
-                // Вывод списка.
-                for (; tmp_pos < active_pane->dirlist->count; tmp_pos++) {
-                    if (tmp_pos == active_pane->real_position) {
-                        wattron(active_pane->PANE_WINDOW, COLOR_PAIR(1));
-
-                        if ((*(active_pane->dirlist->ilist + tmp_pos))->itype == ISDIR)
-                            wprintw(active_pane->PANE_WINDOW, "\n  /%s", (*(active_pane->dirlist->ilist + tmp_pos))->name);
-
-                        if ((*(active_pane->dirlist->ilist + tmp_pos))->itype == ISFILE)
-                            wprintw(active_pane->PANE_WINDOW, "\n  %s", (*(active_pane->dirlist->ilist + tmp_pos))->name);
-
-                        wattroff(active_pane->PANE_WINDOW, COLOR_PAIR(1));
-                    } else {
-                        if ((*(active_pane->dirlist->ilist + tmp_pos))->itype == ISDIR)
-                            wprintw(active_pane->PANE_WINDOW, "\n  /%s", (*(active_pane->dirlist->ilist + tmp_pos))->name);
-
-                        if ((*(active_pane->dirlist->ilist + tmp_pos))->itype == ISFILE)
-                            wprintw(active_pane->PANE_WINDOW, "\n  %s", (*(active_pane->dirlist->ilist + tmp_pos))->name);
-                    }
-                }
-         */
-
-
-        /* Вывод списка.
-         * Тут попробуем упростить чтобы не рябило в глазах от указетелей.    
-         * TODO: Вынести это в отдельную функцию. --> DONE!
-         */
-
+        // Вывод списка активной панели.
         redraw_pane(active_pane, tmp_pos);
 
+        tmp_pos = 0;
+        // Вычисляем номер элемента с которого выводить список НЕактивной панели.
         if (INactive_pane->position + TOP_BORDER > getmaxy(stdscr)) {
             tmp_pos = INactive_pane->position - getmaxy(stdscr);
             tmp_pos += BOTTOM_BORDER;
         }
-
+        // Вывод списка НЕактивной панели.
         redraw_pane(INactive_pane, tmp_pos);
-        /* Этот код работает, но уже вынесен в отдельную функцию redraw_pane() .
-                uint count = active_pane->dirlist->count;
-                uint real_position = active_pane->real_position;
-                struct item **list_item = active_pane->dirlist->ilist;
-
-                for (; tmp_pos < count; tmp_pos++) {
-                    if (tmp_pos == real_position) {
-                        wattron(active_pane->PANE_WINDOW, COLOR_PAIR(1));
-
-                        if ((*(list_item + tmp_pos))->itype == ISDIR)
-                            wprintw(active_pane->PANE_WINDOW, "\n  /%s", (*(list_item + tmp_pos))->name);
-
-                        if ((*(list_item + tmp_pos))->itype == ISFILE)
-                            wprintw(active_pane->PANE_WINDOW, "\n  %s", (*(list_item + tmp_pos))->name);
-
-                        wattroff(active_pane->PANE_WINDOW, COLOR_PAIR(1));
-                    } else {
-                        if ((*(list_item + tmp_pos))->itype == ISDIR)
-                            wprintw(active_pane->PANE_WINDOW, "\n  /%s", (*(list_item + tmp_pos))->name);
-
-                        if ((*(list_item + tmp_pos))->itype == ISFILE)
-                            wprintw(active_pane->PANE_WINDOW, "\n  %s", (*(list_item + tmp_pos))->name);
-                    }
-                }
-         */
-
 
 
         REDRAW(active_pane, 2);
         wrefresh(active_pane->PANE_WINDOW);
         REDRAW(INactive_pane, 2);
         wrefresh(INactive_pane->PANE_WINDOW);
+
+        {
+            // Нижняя панель с подсказками по клавишам.
+            int width = getmaxx(stdscr), height = 1;
+            int start_y = getmaxy(stdscr) - 1;
+            int start_x = 0;
+            WINDOW *bottom_pane = newwin(height, width, start_y, start_x);
+
+            wattron(bottom_pane, COLOR_PAIR(3));
+            box(bottom_pane, 1, 1);
+            mvwprintw(bottom_pane, 0, 3, "|q - quit| \t |ENTER - enter in directory/execute file|");
+            wrefresh(bottom_pane);
+            wattroff(bottom_pane, COLOR_PAIR(3));
+        }
 
         pressed_key = getch();
 

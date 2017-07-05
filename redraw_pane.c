@@ -4,8 +4,12 @@
 
 #define uint unsigned int
 
+/* Вывод списка.
+ * Тут попробуем упростить чтобы не рябило в глазах от указетелей.    
+ * TODO: Вынести это в отдельную функцию. --> DONE!
+ */
 void redraw_pane(pane_window *pane, int tmp_pos) {
-    
+
     uint count = pane->dirlist->count;
     uint real_position = pane->real_position;
     struct item **list_item = pane->dirlist->ilist;
