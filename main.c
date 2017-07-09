@@ -245,16 +245,10 @@ int main(int argc, char** argv) {
                     wattroff(progress_bar_win, COLOR_PAIR(3));
 
                     wrefresh(progress_bar_win);
-                    //sleep(1);
+                    
                     nanosleep(&tms, &tms_res);
-                    // if (getch() == 'q')
-                    // break;
 
                 }
-
-                //printf("Writed: %.1f\n", (cp_status.read_size / 1024) / 1024.0);
-                //sleep(1);
-                //}
 
                 wborder(progress_bar_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
 
