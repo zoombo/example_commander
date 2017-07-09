@@ -5,10 +5,13 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <string.h>
+#include <time.h>
+#include <linux/limits.h>
 
 #include "dirslist.h"
 #include "pane.h"
 #include "redraw_pane.h"
+#include "async_copy.h"
 
 /*
  * 
@@ -22,6 +25,8 @@
 
 #define TOP_BORDER 5
 #define BOTTOM_BORDER 5
+
+#define PANE_ENTRY(pane, entry) ((*(pane->dirlist->ilist + pane->real_position))->entry)
 
 // Перерисовываем окошко-панель.
 #define REDRAW(pane, pair_color_number) wattron(pane->PANE_WINDOW, COLOR_PAIR(pair_color_number));\
@@ -145,7 +150,7 @@ int main(int argc, char** argv) {
 
             // Тут запуск файла.
             if ((*(active_pane->dirlist->ilist + active_pane->real_position))->itype == ISFILE) {
-                char work[255];
+                char work[NAME_MAX];
                 // Тут строим полный путь к запускаемому файлу.
                 char *tmp_getcwd = getcwd(NULL, 255);
                 strcpy(work, tmp_getcwd);
@@ -199,31 +204,70 @@ int main(int argc, char** argv) {
         // Заготовка для progressbar'а копирования файла.
         if (pressed_key == KEY_F(5)) {
 
-            int width = 50, height = 6;
-            int start_y = getmaxy(stdscr) / 3;
-            int start_x = getmaxx(stdscr) / 2 - (width / 2);
-            WINDOW *progress_bar_win = newwin(height, width, start_y, start_x);
-            box(progress_bar_win, 0, 0);
-            wrefresh(progress_bar_win);
+            // Структура для статуса копирования.
+            struct copy_status cp_status;
+            // Тут храним путь до файла назначения.
+            char full_name_dst[NAME_MAX];
+            if ((*(active_pane->dirlist->ilist + active_pane->real_position))->itype == ISFILE) {
 
-            for (int i = 0; i < width - 4; i++) {
+                // Тут строим полный путь к файлу назначения.
+                char *tmp_getcwd = INactive_pane->current_directory;
+                strcpy(full_name_dst, tmp_getcwd);
+                strcat(full_name_dst, "/");
+                strcat(full_name_dst, (*(active_pane->dirlist->ilist + active_pane->real_position))->name);
 
-                wattron(progress_bar_win, COLOR_PAIR(3));
-                mvwprintw(progress_bar_win, 3, i + 2, " ");
-                wattroff(progress_bar_win, COLOR_PAIR(3));
+                async_copy(PANE_ENTRY(active_pane, name), full_name_dst, &cp_status);
+
+                // Тут progressbar копирования.
+                // int width = getmaxx(stdscr) / 2 / 2, height = 6;
+                int width = 50, height = 6;
+                int start_y = getmaxy(stdscr) / 3;
+                int start_x = getmaxx(stdscr) / 2 - (width / 2);
+                WINDOW *progress_bar_win = newwin(height, width, start_y, start_x);
+                box(progress_bar_win, 0, 0);
+                wrefresh(progress_bar_win);
+
+                struct timespec tms = {.tv_sec = 0, .tv_nsec = 50000000};
+                struct timespec tms_res;
+
+                uint bar_line_size;
+                while (cp_status.read_size < cp_status.size) {
+
+                    bar_line_size = (cp_status.read_size / (cp_status.size / 100) / 2);
+
+                    mvwprintw(progress_bar_win, 1, 2, "%d", cp_status.read_size / 1024 / 1024);
+                    wattron(progress_bar_win, COLOR_PAIR(3));
+
+                    if (bar_line_size < 47)
+                        for (int i = 0; i < bar_line_size; i++)
+                            mvwprintw(progress_bar_win, 3, i + 2, " ");
+
+                    wattroff(progress_bar_win, COLOR_PAIR(3));
+
+                    wrefresh(progress_bar_win);
+                    //sleep(1);
+                    nanosleep(&tms, &tms_res);
+                    // if (getch() == 'q')
+                    // break;
+
+                }
+
+                //printf("Writed: %.1f\n", (cp_status.read_size / 1024) / 1024.0);
+                //sleep(1);
+                //}
+
+                wborder(progress_bar_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
 
                 wrefresh(progress_bar_win);
-                sleep(1);
-                if (getch() == 'q')
-                    break;
-
+                pressed_key = ' ';
+                continue;
             }
 
-            //sleep(5);
 
-            wborder(progress_bar_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
+        }
 
-            wrefresh(progress_bar_win);
+        if (pressed_key == 'd') {
+            remove(PANE_ENTRY(active_pane, name));
             pressed_key = ' ';
             continue;
         }
@@ -271,7 +315,9 @@ int main(int argc, char** argv) {
 
             wattron(bottom_pane, COLOR_PAIR(3));
             box(bottom_pane, 1, 1);
-            mvwprintw(bottom_pane, 0, 3, "|q - quit| \t |ENTER - enter in directory/execute file|");
+            mvwprintw(bottom_pane, 0, 3, "|q - quit| \t "
+                    "|ENTER - enter in directory/execute file| \t"
+                    "|d - delete file|");
             wrefresh(bottom_pane);
             wattroff(bottom_pane, COLOR_PAIR(3));
         }
