@@ -229,21 +229,21 @@ int main(int argc, char** argv) {
 
                 struct timespec tms = {.tv_sec = 0, .tv_nsec = 50000000};
                 struct timespec tms_res;
-                
+
                 // Ждем пока не началось копирование.
                 while (cp_status.read_size == 0)
                     nanosleep(&tms, &tms_res);
-                    
-                
+
+                // Длинна полосы progressbar'а.
                 uint bar_line_size;
                 while (cp_status.read_size < cp_status.size) {
-
+                    // Вычисляем длинну.
                     bar_line_size = (cp_status.read_size / (cp_status.size / 100) / 2);
 
-                    mvwprintw(progress_bar_win, 1, 2, "%d", cp_status.read_size / 1024 / 1024);
+                    mvwprintw(progress_bar_win, 1, 2, "MB read: %d", cp_status.read_size / 1024 / 1024);
                     wattron(progress_bar_win, COLOR_PAIR(3));
 
-                    // if (bar_line_size < 47)
+                    if (bar_line_size < width - 5)
                         for (int i = 0; i <= bar_line_size; i++)
                             mvwprintw(progress_bar_win, 3, i + 2, " ");
 
@@ -258,16 +258,37 @@ int main(int argc, char** argv) {
                 wborder(progress_bar_win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
 
                 wrefresh(progress_bar_win);
+
+                //////__В этом блоке перерисуем список файлов в панели__////////
+                items_list_free(&INactive_pane->dirlist);
+                // Загружаем список файлов нового каталога.
+                chdir(INactive_pane->current_directory);
+                INactive_pane->dirlist = items_list(".");
+                chdir(active_pane->current_directory);
+                // Обнуляем позицию.
+                INactive_pane->position = 0;
+                INactive_pane->real_position = 0;
+                // Обнуляем чтобы не зациклилось.
                 pressed_key = ' ';
                 continue;
+                ////////////////////////////////////////////////////////////////
             }
 
         }
 
         if (pressed_key == 'd') {
             remove(PANE_ENTRY(active_pane, name));
+            //////__В этом блоке перерисуем список файлов в панели__////////           
+            items_list_free(&active_pane->dirlist);
+            // Загружаем список файлов нового каталога.
+            active_pane->dirlist = items_list(active_pane->current_directory);
+            // Обнуляем позицию.
+            active_pane->position = 0;
+            active_pane->real_position = 0;
+            // Обнуляем чтобы не зациклилось.
             pressed_key = ' ';
             continue;
+            ////////////////////////////////////////////////////////////////
         }
 
         active_pane->current_directory = getcwd(NULL, 255);

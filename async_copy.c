@@ -116,4 +116,5 @@ static void *copy(void *st_ptr) {
     }
     // Освобождаем место выделенное в куче в функции async_copy().
     free(st_ptr);
+    return (void*)0;
 }

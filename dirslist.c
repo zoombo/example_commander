@@ -26,21 +26,44 @@ typedef struct {
 /// Сортирует список файлов поднимая каталоги вверх.
 /// \param dl
 
-/*
 static void items_list_sort(dirslist_t *dl) {
 
     struct item *tmp_item = NULL;
-    //unsigned int items_count = dl->count;
 
-    for (uint i = 2; i < dl->count; i++) {
-        if (*(dl->ilist + i)->itype == ISFILE) {
-            tmp_item = *(dl->ilist + (i + 1));
-            //dl->ilist
+    /*
+        for (uint i = 2; i < dl->count; i++) {
+            if (*(dl->ilist + i)->itype == ISFILE) {
+                tmp_item = *(dl->ilist + (i + 1));
+                //dl->ilist
+            }
+        }
+     */
+
+    for (int i = 0; i < dl->count - 1; i++) {
+        // Сравниваем два соседних элемента.
+        for (int j = 0; j < dl->count - i - 1; j++) {
+
+            if (dl->ilist[j]->itype == ISFILE && dl->ilist[j + 1]->itype == ISDIR) {
+                // Каталоги вверх, файлы вниз. 
+                
+                /* Это просто для себя, для проверки что не забыл
+                 * как пользоваться адресной арифметикой.
+                   
+                     tmp_item = dl->ilist[j];
+                    (*(dl->ilist + j)) = (*(dl->ilist + (j+1)));
+                    (*(dl->ilist + (j+1))) = tmp_item;
+                 */
+                
+                tmp_item = dl->ilist[j];
+                dl->ilist[j] = dl->ilist[j + 1];
+                dl->ilist[j + 1] = tmp_item;
+            }
         }
     }
 
+
 }
-*/
+
 
 
 /// Очищает кучу по адресам из принятой структуры.
@@ -141,7 +164,7 @@ dirslist_t *items_list(char *dst_name) {
         strcpy((*(dl->ilist + 1))->name, "..");
         (*(dl->ilist + 1))->itype = item_type.ISDIR;
      */
-    // Указваем что в списке уже есть два элемента.
+    // Указываем что в списке уже есть два элемента.
     dl->count = 2;
 
 
@@ -190,6 +213,7 @@ dirslist_t *items_list(char *dst_name) {
             dl->ilist = realloc(dl->ilist, sizeof (struct item*) * (dl->count + 1));
 
         }
+        items_list_sort(dl);
         *(dl->ilist + dl->count) = NULL;
         closedir(DIRp);
         return dl;
