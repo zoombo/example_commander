@@ -14,6 +14,12 @@ struct copy_status {
     unsigned long int size;
     // Размер уже скопированных данных.
     unsigned long int read_size;
+    // Статус операции.
+    //  0 - ничего не значит (стандартное значение после инициализации).
+    //  1 - операция копирования началась.
+    //  2 - операция копирования завершилась успешно.
+    // -1 - произошла ошибка.
+    int status;
 };
 
 // Структура в которой передаются параметры функции copy().
@@ -63,6 +69,7 @@ static void *copy(void *st_ptr) {
     src_fd = open(src, O_RDONLY);
     // Если не удалось открыть выдаем ошибку.
     if (src_fd == -1) {
+        cps->status = -1;
         // printf("Error open src : %s .\n", src);
 
     }// Если открылось идем дальше.
@@ -74,6 +81,7 @@ static void *copy(void *st_ptr) {
         if (dst_fd == -1) {
             // printf("Error create dst.\n");
             close(src_fd);
+            cps->status = -1;
         }// Если оба файла открыты, начинаем копирование.
         else {
 
@@ -89,14 +97,21 @@ static void *copy(void *st_ptr) {
 #define BUF_SIZE 4096
             char buf[BUF_SIZE + 1];
             int reads_bytes;
+            cps->status = 1;
+            int write_status;
             while ((reads_bytes = read(src_fd, buf, BUF_SIZE)) > 0) {
-                write(dst_fd, buf, reads_bytes);
+                write_status = write(dst_fd, buf, reads_bytes);
+                if (write_status == -1) {
+                    cps->status = -1;
+                    break;
+                }
                 cps->read_size += reads_bytes;
             }
 
             close(src_fd);
             close(dst_fd);
-
+            if (cps->status != -1)
+                cps->status = 2;
         }
     }
     // Освобождаем место выделенное в куче в функции async_copy().

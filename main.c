@@ -205,7 +205,7 @@ int main(int argc, char** argv) {
         if (pressed_key == KEY_F(5)) {
 
             // Структура для статуса копирования.
-            struct copy_status cp_status;
+            struct copy_status cp_status = {};
             // Тут храним путь до файла назначения.
             char full_name_dst[NAME_MAX];
             if ((*(active_pane->dirlist->ilist + active_pane->real_position))->itype == ISFILE) {
@@ -229,7 +229,12 @@ int main(int argc, char** argv) {
 
                 struct timespec tms = {.tv_sec = 0, .tv_nsec = 50000000};
                 struct timespec tms_res;
-
+                
+                // Ждем пока не началось копирование.
+                while (cp_status.read_size == 0)
+                    nanosleep(&tms, &tms_res);
+                    
+                
                 uint bar_line_size;
                 while (cp_status.read_size < cp_status.size) {
 
@@ -238,14 +243,14 @@ int main(int argc, char** argv) {
                     mvwprintw(progress_bar_win, 1, 2, "%d", cp_status.read_size / 1024 / 1024);
                     wattron(progress_bar_win, COLOR_PAIR(3));
 
-                    if (bar_line_size < 47)
-                        for (int i = 0; i < bar_line_size; i++)
+                    // if (bar_line_size < 47)
+                        for (int i = 0; i <= bar_line_size; i++)
                             mvwprintw(progress_bar_win, 3, i + 2, " ");
 
                     wattroff(progress_bar_win, COLOR_PAIR(3));
 
                     wrefresh(progress_bar_win);
-                    
+                    // sleep(1);
                     nanosleep(&tms, &tms_res);
 
                 }
@@ -256,7 +261,6 @@ int main(int argc, char** argv) {
                 pressed_key = ' ';
                 continue;
             }
-
 
         }
 
